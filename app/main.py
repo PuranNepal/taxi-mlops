@@ -1,21 +1,28 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import joblib
+from pathlib import Path
 
 from app.schemas import PredictionRequest, PredictionResponse
 
-# init
 app = FastAPI()
 
-# load in the model
-model = joblib.load("models/model.joblib")
+MODEL_PATH = Path("models/model.joblib")
+
+model = None
+if MODEL_PATH.exists():
+    model = joblib.load(MODEL_PATH)
+
 
 @app.get("/")
 def read_root():
     return {"message": "Taxi demand prediction API is running"}
 
-# response must match prediction response
+
 @app.post("/predict", response_model=PredictionResponse)
 def predict(request: PredictionRequest):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
     features = [[
         request.hour,
         request.day_of_week,
@@ -27,5 +34,4 @@ def predict(request: PredictionRequest):
     ]]
 
     prediction = model.predict(features)[0]
-
     return PredictionResponse(prediction=float(prediction))
